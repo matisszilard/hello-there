@@ -1,0 +1,50 @@
+#!/usr/bin/env groovy
+
+// Declarative pipeline example
+pipeline {
+    agent {
+            kubernetes {
+                defaultContainer 'builder'
+                yaml """
+kind: Pod
+spec:
+    containers:
+    - name: builder
+      image: golang:1.15.2
+      env:
+        - name: GOCACHE
+          value: "/home/jenkins/agent/.cache"
+          tty: true
+      args:
+        - "9999999"
+      command:
+        - "sleep"
+"""
+            }
+    }
+    stages {
+        stage('Build') {
+            steps {
+                script {
+                    sh "go build ."
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                script {
+                    sh "go test ./... -cover -v -p 1"
+                }
+            }
+        }
+
+        stage('Coverage') {
+            steps {
+                script {
+                    sh "go test ./... -cover -v -p 1 "
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,33 @@
+#!/usr/bin/env groovy
+
+pipeline {
+    agent none
+    stages {
+        stage ('Promotion') {
+            steps {
+                script {
+                    input 'Do you want to delete the deployment?'
+                }
+            }
+        }
+
+        stage ('Delet deployment from kubernetes') {
+            agent {
+                kubernetes {
+                    label 'kubectl'
+                    defaultContainer 'kubectl'
+                }
+            }
+            steps {
+                script {
+                    input message: 'Are you sure?'
+                    withCredentials([file(credentialsId: 'KUBE_CONFIG', variable: 'kube_config')]) {
+                        sh 'mkdir -p ~/.kube'
+                        sh "cp \$kube_config ~/.kube/config"
+                        sh 'kubectl delete -f ./kube/ -n utapau'
+                    }
+                }
+            }
+        }
+    }
+}

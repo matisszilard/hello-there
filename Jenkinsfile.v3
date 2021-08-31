@@ -1,0 +1,22 @@
+#!/usr/bin/env groovy
+
+// Scripted pipeline example
+podTemplate(yaml: readTrusted('build.yml')) {
+    node(POD_LABEL) {
+        git url: 'https://github.com/matisszilard/hello-there.git', branch: 'main'
+        container('golang') {
+            stage('Build') {
+                sh "ls -al"
+                sh 'go build .'
+            }
+
+            stage('Test') {
+                sh 'go test ./... -cover -v -p 1'
+            }
+
+            stage('Coverage') {
+                sh 'go test ./... -cover -v -p 1'
+            }
+        }
+    }
+}

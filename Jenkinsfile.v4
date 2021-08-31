@@ -1,0 +1,103 @@
+#!/usr/bin/env groovy
+
+// Declarative pipeline example
+pipeline {
+    agent {
+        kubernetes {
+            label 'go-builder'
+            defaultContainer 'go-builder'
+        }
+    }
+    stages {
+        stage('Build') {
+            steps {
+                script {
+                    sh "ls -al"
+                    sh "go build ."
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'hello-there', fingerprint: true
+                }
+            }
+        }
+
+        stage('Test') {
+            parallel {
+                stage('Test in docker') {
+                    steps {
+                        script {
+                            sh "ls -al"
+                            sh "go test ./... -cover -v -p 1"
+                        }
+                    }
+                }
+
+                stage('Coverage') {
+                    agent {
+                        kubernetes {
+                            label 'go-builder'
+                            defaultContainer 'go-builder'
+                        }
+                    }
+                    steps {
+                        script {
+                            sh "ls -al"
+                            sh "go test ./... -cover -v -p 1 "
+                        }
+                    }
+                }
+            }
+        }
+
+        stage ('Build docker image') {
+            agent {
+                kubernetes {
+                    label 'kaniko'
+                    defaultContainer 'kaniko'
+                }
+            }
+            steps {
+                script {
+                    sh "/kaniko/executor --context=. --dockerfile=./Dockerfile --no-push"
+                }
+            }
+        }
+
+        stage ('Push docker image') {
+            agent {
+                kubernetes {
+                    label 'kaniko'
+                    defaultContainer 'kaniko'
+                }
+            }
+            steps {
+                script {
+                    withCredentials([file(credentialsId: 'DOCKER_CONFIG_JSON', variable: 'kaniko_config')]) {
+                        sh "cp \$kaniko_config /kaniko/.docker/config.json"
+                        sh '/kaniko/executor --context=. --dockerfile=./Dockerfile --destination=mszg/hello-there:latest'
+                    }
+                }
+            }
+        }
+
+        stage ('Deploy to kubernetes') {
+            agent {
+                kubernetes {
+                    label 'kubectl'
+                    defaultContainer 'kubectl'
+                }
+            }
+            steps {
+                script {
+                    withCredentials([file(credentialsId: 'KUBE_CONFIG', variable: 'kube_config')]) {
+                        sh 'mkdir -p ~/.kube'
+                        sh "cp \$kube_config ~/.kube/config"
+                        sh 'kubectl apply -f ./kube/ -n utapau'
+                    }
+                }
+            }
+        }
+    }
+}

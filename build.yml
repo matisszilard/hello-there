@@ -1,0 +1,13 @@
+kind: Pod
+spec:
+  containers:
+    - name: golang
+      image: golang:1.15.2
+      env:
+        - name: GOCACHE
+          value: "/home/jenkins/agent/.cache"
+          tty: true
+      args:
+        - "9999999"
+      command:
+        - "sleep"

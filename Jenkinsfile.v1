@@ -1,0 +1,54 @@
+#!/usr/bin/env groovy
+
+// Declarative pipeline example
+pipeline {
+    agent {
+        kubernetes {
+            label 'go-builder'
+            defaultContainer 'go-builder'
+        }
+    }
+    stages {
+        stage('Build') {
+            steps {
+                script {
+                    sh "ls -al"
+                    sh "go build ."
+                }
+            }
+        }
+
+        stage('Test') {
+            parallel {
+                stage('Test in docker') {
+                    steps {
+                        script {
+                            sh "ls -al"
+                            sh "go test ./... -cover -v -p 1"
+                        }
+                    }
+                }
+
+                stage('Coverage') {
+                    agent {
+                        kubernetes {
+                            label 'go-builder'
+                            defaultContainer 'go-builder'
+                        }
+                    }
+                    steps {
+                        script {
+                            sh "ls -al"
+                            sh "go test ./... -cover -v -p 1 "
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            archiveArtifacts artifacts: 'hello-there', fingerprint: true
+        }
+    }
+}
